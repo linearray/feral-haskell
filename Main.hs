@@ -45,7 +45,7 @@ download f = withCurlDo $ do
              (resp :: CurlResponse) <- curlGetResponse_ f curlDLFlags
              respGetInfo resp $ SpeedDownload
 
---
+-- |Returns the string identifier of the currently selected route
 getCurrentRoute :: IO String
 getCurrentRoute =
     withCurlDo $ do
@@ -54,6 +54,7 @@ getCurrentRoute =
       let m = head $ filter (isInfixOf "checked") body
       return m
 
+-- |Sets the argument route on the reroute page
 setRoute :: Route -> IO ()
 setRoute r =
     withCurlDo $ do
@@ -64,9 +65,18 @@ setRoute r =
         [CurlVerbose False, CurlPostFields [b], CurlWriteFunction ignoreOutput]
         []
 
+-- |Sadly, the list of settable routes is not static. We need to
+--  check which routes are currently available on the feral reroute page.
+filterRoutes :: [Route] -> IO [Route]
+filterRoutes rs = do
+  (resp::CurlResponse) <- curlGetResponse_ reroutePage []
+  let body = lines $ respBody resp
+  let determinedRoutes = filter (\el -> not . null $ filter (isInfixOf (nexthop el)) body) rs
+
+  return $ (head routes):determinedRoutes
 
 -- |Checks the route to the given IP address for a number of times
---  or until the route was successfully set.
+--  or until the route was successfully set
 checkRoute :: String -> Route -> IO Bool
 checkRoute myip r =
     putStrLn "Waiting for route change to take effect" >>
@@ -106,6 +116,8 @@ getCurrentIP =
 
 main :: IO ()
 main = do
+  availRoutes <- filterRoutes (tail routes)
+  
   bestr <- foldM (\os@(s,_) r -> do
     ip <- getCurrentIP
     setRoute r
@@ -123,7 +135,7 @@ main = do
 
         if nsi > s
         then return (nsi, r)
-        else return os) (0,head routes) routes
+        else return os) (0,head availRoutes) availRoutes
 
   --print $ fst bestr
   putStrLn $ "\n\nBest result: " ++ description (snd bestr)
