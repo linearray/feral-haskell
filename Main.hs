@@ -6,6 +6,7 @@
 import Network.Curl
 --import Network.HTTP
 import Data.List
+import Data.Maybe (fromMaybe)
 import Text.Regex.TDFA
 import GHC.Conc
 import Debug.Trace
@@ -16,19 +17,20 @@ data Route =
     Route {
       description :: String,
       nexthop     :: String,
+      matchcode   :: Maybe String,
       testfile    :: String
     }
 
 routes =
     [
-      Route "Default" "0.0.0.0" "https://feral.io/test.bin",
-      Route "Cogent" "130.117.255.36" "https://cogent-1.feral.io/test.bin",
-      Route "Fiber Ring #1" "87.255.32.229" "https://fr-1.feral.io/test.bin",
-      Route "Fiber Ring #2" "87.255.32.249" "https://fr-2.feral.io/test.bin",
-      Route "GTT" "77.67.64.81" "https://gtt-1.feral.io/test.bin",
-      Route "Level3" "213.19.196.233" "https://level3.feral.io/test.bin",
-      Route "NTT #1" "81.20.64.101" "https://ntt-1.feral.io/test.bin",
-      Route "NTT #2" "81.20.69.197" "https://ntt-2.feral.io/test.bin"
+      Route "Default" "0.0.0.0" Nothing "https://feral.io/test.bin",
+      Route "Cogent" "130.117.255.36" (Just "cogent") "https://cogent-1.feral.io/test.bin",
+      Route "Fiber Ring #1" "87.255.32.229" Nothing "https://fr-1.feral.io/test.bin",
+      Route "Fiber Ring #2" "87.255.32.249" Nothing "https://fr-2.feral.io/test.bin",
+      Route "GTT" "77.67.64.81" Nothing "https://gtt-1.feral.io/test.bin",
+      Route "Level3" "213.19.196.233" Nothing "https://level3.feral.io/test.bin",
+      Route "NTT #1" "81.20.64.101" Nothing "https://ntt-1.feral.io/test.bin",
+      Route "NTT #2" "81.20.69.197" Nothing "https://ntt-2.feral.io/test.bin"
     ]
 
 reroutePage = "https://network.feral.io/reroute"
@@ -78,26 +80,27 @@ filterRoutes rs = do
 -- |Checks the route to the given IP address for a number of times
 --  or until the route was successfully set
 checkRoute :: String -> Route -> IO Bool
-checkRoute myip r =
-    putStrLn "Waiting for route change to take effect" >>
-    checkOnce myip (nexthop r) 10
+checkRoute myip r = do
+    putStrLn "Waiting for route change to take effect"
+    let matcher = fromMaybe (nexthop r) (matchcode r)
+    checkOnce myip matcher 10
         where
           -- We cannot really check whether the Default route is in
           -- effect, so we just wait and be done with it.
           checkOnce _ "0.0.0.0" _ = do
             threadDelay 5000000
             return True
-          checkOnce myip hop 0 = return False
-          checkOnce myip hop n =
+          checkOnce myip matcher 0 = return False
+          checkOnce myip matcher n =
               withCurlDo $ do
                 threadDelay 2000000
                 (resp::CurlResponse) <- curlGetResponse_ (lookingGlassHost myip) []
 
                 let body = lines $ respBody resp
 
-                if (not . null $ filter (isInfixOf hop) body)
+                if (not . null $ filter (isInfixOf matcher) body)
                 then return True
-                else checkOnce myip hop (n-1)
+                else checkOnce myip matcher (n-1)
 
 --  
 getCurrentIP :: IO String
