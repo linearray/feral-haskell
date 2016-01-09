@@ -2,9 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 
---import Turtle
 import Network.Curl
---import Network.HTTP
 import Data.List
 import Data.Maybe (fromMaybe)
 import Text.Regex.TDFA
@@ -41,7 +39,8 @@ lookingGlassHost ip =
       ++ ip
 
 curlDLFlags = [CurlTimeout 10, CurlFollowLocation True]
-            
+
+-- |Downloads f and returns the download speed
 download :: URLString -> IO InfoValue
 download f = withCurlDo $ do
              (resp :: CurlResponse) <- curlGetResponse_ f curlDLFlags
@@ -102,7 +101,7 @@ checkRoute myip r = do
                 then return True
                 else checkOnce myip matcher (n-1)
 
---  
+-- |Returns the external IP of the host executing the script
 getCurrentIP :: IO String
 getCurrentIP =
     withCurlDo $ do
@@ -140,7 +139,6 @@ main = do
         then return (nsi, r)
         else return os) (0,head availRoutes) availRoutes
 
-  --print $ fst bestr
   putStrLn $ "\n\nBest result: " ++ description (snd bestr)
   putStrLn . show $ fst bestr
 
