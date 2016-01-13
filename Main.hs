@@ -80,16 +80,16 @@ filterRoutes rs = do
 --  or until the route was successfully set
 checkRoute :: String -> Route -> IO Bool
 checkRoute myip r = do
-    putStrLn "Waiting for route change to take effect"
+    putStr "Waiting for route change to take effect"
     let matcher = fromMaybe (nexthop r) (matchcode r)
     checkOnce myip matcher 10
         where
           -- We cannot really check whether the Default route is in
           -- effect, so we just wait and be done with it.
-          checkOnce _ "0.0.0.0" _ = do
-            threadDelay 5000000
-            return True
-          checkOnce myip matcher 0 = return False
+          checkOnce _ "0.0.0.0" _ =
+            threadDelay 5000000 >> putStr "\n" >> return True
+          checkOnce myip matcher 0 =
+            putStr "\n" >> return False
           checkOnce myip matcher n =
               withCurlDo $ do
                 threadDelay 2000000
@@ -98,8 +98,10 @@ checkRoute myip r = do
                 let body = lines $ respBody resp
 
                 if (not . null $ filter (isInfixOf matcher) body)
-                then return True
-                else checkOnce myip matcher (n-1)
+                then
+                    putStr "\n" >> return True
+                else
+                    putStr "." >> checkOnce myip matcher (n-1)
 
 -- |Returns the external IP of the host executing the script
 getCurrentIP :: IO String
