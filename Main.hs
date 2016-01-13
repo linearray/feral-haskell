@@ -35,7 +35,7 @@ reroutePage = "https://network.feral.io/reroute"
 
 lookingGlassHost :: String -> String
 lookingGlassHost ip =
-    "https://network.feral.io/looking-glass?action=traceroute&host="
+    "https://network.feral.io/looking-glass?action=mtr&host="
       ++ ip
 
 curlDLFlags = [CurlTimeout 10, CurlFollowLocation True]
